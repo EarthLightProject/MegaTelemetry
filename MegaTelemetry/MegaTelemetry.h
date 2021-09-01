@@ -8,8 +8,6 @@
 #include <MsTimer2.h>
 #include <SparkFunBME280.h>
 #include <avr/wdt.h>
-#include <avr/io.h>
-#include <Servo.h>
 
 //pin define
 #define GNSS_RST 22
@@ -24,6 +22,8 @@
 #define Air_PWM 2
 #define O2_PWM 5
 #define Thermocouple_PIN A3
+#define LoRa_RESET 24
+#define RST_mega 7
 
 #define O2PWMset OCR3A  //Timer3のDuty設定用レジスタ名
 #define AirPWMset OCR3B
@@ -32,10 +32,9 @@
 #define FILE_NAME "DataLog.txt"
 
 //////////グローバル変数の宣言//////////
-float Temp_IN=0.0,Temp_OUT=0.0;
+int16_t Temp_IN=0.0,Temp_OUT=0.0;
 float Humidity_IN=0.0,Humidity_OUT=0.0;
 float Pressure_IN=0.0,Pressure_OUT=0.0;
-float Flow_data_LoRa[3]={0};
 int timecount=0, IG_count=0;
 uint8_t IG_flag=0 , Flow_flag=0 , time_flag=0 , IG_point[4]={0} , Pulse_Count = 0;
 long latitude , longitude , altitude;
@@ -52,7 +51,6 @@ SFE_UBLOX_GNSS myGNSS;
 BME280 BME280_OUT;
 BME280 BME280_IN;
 File myFile;
-Servo Servo_Diaphragm;
 ///////////////////////////////////
 
 
@@ -90,6 +88,10 @@ void pinSetup(){
   pinMode(Air_flow,INPUT);
   pinMode(LPG_flow,INPUT);
   pinMode(Thermocouple_PIN,INPUT);
+  pinMode(LoRa_RESET,OUTPUT);
+  pinMode(RST_mega,OUTPUT);
+  digitalWrite(LoRa_RESET,HIGH);
+  digitalWrite(RST_mega,LOW);
   //pinMode(GNSS_RST,OUTPUT);
   //digitalWrite(GNSS_RST,HIGH);
 }
@@ -198,14 +200,14 @@ void setupBME280(void) {
 }
 
 void BME280_OUT_data(void) {
-  Temp_OUT = BME280_OUT.readTempC(); //°C
+  Temp_OUT = (int16_t)(100*BME280_OUT.readTempC()); //°C
   Humidity_OUT = BME280_OUT.readFloatHumidity(); //%
   Pressure_OUT = BME280_OUT.readFloatPressure() / 100; //hPa
 }
 
 void BME280_IN_data(void){
-  Temp_IN = BME280_IN.readTempC(); //°C
-  Humidity_IN = BME280_IN.readFloatHumidity(); //%
+  Temp_IN = (int16_t)(100*BME280_IN.readTempC()); //°C
+  Humidity_IN = (uint16_t)(100*BME280_IN.readFloatHumidity()); //%
   Pressure_IN = BME280_IN.readFloatPressure() / 100; //hPa
 }
 
@@ -277,43 +279,4 @@ void IG_Get(int ig_time){
       }
       RECEVE_Str.remove(0);
     }
-}
-
-/*void Pressure_IG(){
-  if(Pressure_OUT < 1.0) {
-    
-  }
-  else if(Pressure_OUT < 490.0 && IG_point[0]==0){  //5km
-    IG_point[0] = 1;
-    IG_Pulse();
-  }
-  else if(Pressure_OUT < 240.0 && IG_point[1]==0){   //10km
-     IG_point[1] = 1;
-     IG_Pulse();
-  }
-  else if(Pressure_OUT < 115.0 && IG_point[2]==0){   //15km
-     IG_point[2] = 1;
-     IG_Pulse();
-  }
-  else if(Pressure_OUT < 57.0 && IG_point[3]==0){    //20km
-     IG_point[3] = 1;
-     IG_Pulse();
-  }
-}*/
-
-void IG_Pulse(){
-   IG_flag = 1;
-   Flow_flag = 1;
-   IG_count = IG_TIME+IG_TIME_DELAY;
-   Pulse_Count = FLOW_TIME*20 ;
-}
-
-//////////////////////////////////////////////////////////////////
-
-void change_freq1(int divide){    //PWMの設定をする関数 AVR.hで定義されているレジスタに直接設定を書き込む Timer1はイグナイタ、Timer3は流量制御に使用
-  //TCCR1A = (TCCR1A & B00111100) | B10000010;   //Phase and frequency correct, Non-inverting mode, TOP defined by ICR
-  TCCR3A = (TCCR3A & B00000000) | B10101010;   //Timer3のモード設定
-  TCCR1B = (TCCR1B & 0b11111000) | divide;     //Timer1のプリスケーラ設定
-  TCCR3B = (TCCR3B & B11100000) | B00010001;   //Timer3のプリスケーラ設定
-  ICR3 = 4095;                                 //Timer3の分解能設定(4095=12bit)
 }
