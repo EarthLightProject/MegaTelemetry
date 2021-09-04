@@ -24,32 +24,29 @@
 #define Thermocouple_PIN A3
 #define LoRa_RESET 24
 #define RST_mega 7
-
-#define O2PWMset OCR3A  //Timer3のDuty設定用レジスタ名
-#define AirPWMset OCR3B
-#define LPGPWMset OCR3C
+#define SW1 8
+#define SW2 9
+#define SW3 10
 
 #define FILE_NAME "DataLog.txt"
 
 //////////グローバル変数の宣言//////////
-int16_t Temp_IN=0.0,Temp_OUT=0.0;
-float Humidity_IN=0.0,Humidity_OUT=0.0;
-float Pressure_IN=0.0,Pressure_OUT=0.0;
+int16_t Temp=0;
+float Humidity=0;
+float Pressure=0;
 int timecount=0, IG_count=0;
-uint8_t IG_flag=0 , Flow_flag=0 , time_flag=0 , IG_point[4]={0} , Pulse_Count = 0;
+uint8_t time_flag=0 ;
 long latitude , longitude , altitude;
 byte Hour, Minute, Second;
 String Buffer_GNSS;
 String Buffer_TIME;
-String Buffer_BME280_OUT;
-String Buffer_BME280_IN;
+String Buffer_BME280;
 String RECEVE_Str;
 ////////////////////////////////////
 
 /////////////クラスの宣言/////////////
 SFE_UBLOX_GNSS myGNSS;
-BME280 BME280_OUT;
-BME280 BME280_IN;
+BME280 bme280;
 File myFile;
 ///////////////////////////////////
 
@@ -65,29 +62,16 @@ void SDsetup(void);
 void Serial_print(void);
 void Create_Buffer(void);
 void SDWriteData(void);
-void Diaphragm_control(void);
-void O2_Conrol();
-void Air_Control();
-void LPG_Control();
 void IG_Get();
-void Pressure_IG();
-void IG_Pulse();
 /////////////////////////////////
 
 /****************************************************
   　　　　　　　プロトタイプ宣言した関数
  ****************************************************/
 void pinSetup(){
-  pinMode(IGsig, INPUT);
-  pinMode(Servo_PWM,OUTPUT);
-  pinMode(O2_PWM,OUTPUT);
-  pinMode(LPG_PWM,OUTPUT);
-  pinMode(Air_PWM,OUTPUT);
-  pinMode(IGPWM,OUTPUT);
-  pinMode(O2_flow,INPUT);
-  pinMode(Air_flow,INPUT);
-  pinMode(LPG_flow,INPUT);
-  pinMode(Thermocouple_PIN,INPUT);
+  pinMode(SW1,INPUT);
+  pinMode(SW2,INPUT);
+  pinMode(SW3,INPUT);
   pinMode(LoRa_RESET,OUTPUT);
   pinMode(RST_mega,OUTPUT);
   digitalWrite(LoRa_RESET,HIGH);
@@ -120,8 +104,7 @@ void SDWriteData(void) {
   if (myFile) {               // if the file opened okay, write to it:
     myFile.print(millis());
     myFile.write(',');
-    myFile.print(Buffer_BME280_OUT);
-    myFile.print(Buffer_BME280_IN);
+    myFile.print(Buffer_BME280;
   }
 }
 //////////////////////////////////////////////////////////////////////
@@ -171,26 +154,26 @@ void GNSS_data(void) {
 
 ///////////////////////////BME280////////////////////////////////
 void setupBME280(void) {
-  BME280_OUT.setI2CAddress(0x77);
-  if (BME280_OUT.beginI2C()) {
+  bme280.setI2CAddress(0x77);
+  if (bme280.beginI2C()) {
     Wire.beginTransmission(0x77);
     Wire.write(0xf4);
     Wire.write(0x93);
     Wire.endTransmission();
     #ifdef DEBUG_SENS
-    Serial.println("BME280 Outside OK");
+    Serial.println("BME280 adress 0x77 OK");
     #endif
-    //return;
+    return;
     delay(50);
   }
-  BME280_IN.setI2CAddress(0x76);
-  if (BME280_IN.beginI2C()) {
+  bme280.setI2CAddress(0x76);
+  if (bme280.beginI2C()) {
     Wire.beginTransmission(0x76);
     Wire.write(0xf4);
     Wire.write(0x93);
     Wire.endTransmission();
     #ifdef DEBUG_SENS
-    Serial.println("BME280 Inside OK");
+    Serial.println("BME280 adress 0x76 OK");
     #endif
     return;
   }
@@ -199,16 +182,10 @@ void setupBME280(void) {
   #endif
 }
 
-void BME280_OUT_data(void) {
-  Temp_OUT = (int16_t)(100*BME280_OUT.readTempC()); //°C
-  Humidity_OUT = BME280_OUT.readFloatHumidity(); //%
-  Pressure_OUT = BME280_OUT.readFloatPressure() / 100; //hPa
-}
-
-void BME280_IN_data(void){
-  Temp_IN = (int16_t)(100*BME280_IN.readTempC()); //°C
-  Humidity_IN = (uint16_t)(100*BME280_IN.readFloatHumidity()); //%
-  Pressure_IN = BME280_IN.readFloatPressure() / 100; //hPa
+void BME280_data(void) {
+  Temp = bme280.readTempC(); //°C
+  Humidity = bme280.readFloatHumidity(); //%
+  Pressure = bme280.readFloatPressure() / 100; //hPa
 }
 
 //////////////////////////////////////////////////////////////////
@@ -238,24 +215,14 @@ void Create_Buffer_TIME(){
   Buffer_TIME.concat(Second);
 }
 
-void Create_Buffer_BME280_OUT(void){
- // Buffer.concat("Latitude,Longitude,Height\n"); 
-  Buffer_BME280_OUT.remove(0);
-  Buffer_BME280_OUT.concat(Temp_OUT);
-  Buffer_BME280_OUT.concat(","); 
-  Buffer_BME280_OUT.concat(Humidity_OUT);
-  Buffer_BME280_OUT.concat(",");
-  Buffer_BME280_OUT.concat(Pressure_OUT);
-  Buffer_BME280_OUT.concat(",");
-}
-
-void Create_Buffer_BME280_IN(void){
-  Buffer_BME280_IN.remove(0);
-  Buffer_BME280_IN.concat(Temp_IN);
-  Buffer_BME280_IN.concat(","); 
-  Buffer_BME280_IN.concat(Humidity_IN);
-  Buffer_BME280_IN.concat(",");
-  Buffer_BME280_IN.concat(Pressure_IN);
+void Create_Buffer_BME280(void){
+  Buffer_bme280.remove(0);
+  Buffer_bme280.concat(Temp);
+  Buffer_bme280.concat(","); 
+  Buffer_bme280.concat(Humidity);
+  Buffer_bme280.concat(",");
+  Buffer_bme280.concat(Pressure);
+  Buffer_bme280.concat(",");
 }
 
 void IG_Get(int ig_time){

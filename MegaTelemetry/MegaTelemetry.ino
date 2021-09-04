@@ -20,18 +20,15 @@ void setup(){
 //  Wire.begin();          //I2C通信開始
 //  setupBME280();
   SDsetup();
-  digitalWrite(RST_mega,HIGH);
+//  digitalWrite(RST_mega,HIGH);
   MsTimer2::set(Ts, TIME_Interrupt); // TsごとTIME_Interruptを呼び出す
   MsTimer2::start();
 }
 
 void loop(){
-//  BME280_OUT_data();
-//  BME280_IN_data();
-//  Create_Buffer_BME280_OUT();
-//  Create_Buffer_BME280_IN();
+//  BME280_data();
+//  Create_Buffer_BME280();
 //  SDWriteData();
-//IG_Get(IG_TIME+IG_TIME_DELAY); 
   /*if(time_flag!=0){
     GNSS_data();
     Create_Buffer_GNSS();
@@ -43,7 +40,6 @@ void loop(){
     time_flag=0;*/
     
 //  }
-  // Pressure_IG();
   // myFile.println();
   // myFile.flush(); 
 }
@@ -56,7 +52,7 @@ void TIME_Interrupt(void){
 }
 
 void Serial_print(void){
-  Serial.print(Buffer_BME280_OUT);
+  Serial.print(Buffer_BME280);
   Serial.print(Buffer_GNSS); 
 }
 ///////////////////////////////////////////////////////////
