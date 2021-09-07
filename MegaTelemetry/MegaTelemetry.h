@@ -36,7 +36,7 @@ float Humidity=0;
 float Pressure=0;
 int timecount=0, IG_count=0;
 uint8_t time_flag=0 ;
-long latitude , longitude , altitude;
+long latitude[1] , longitude[1] , altitude[1];
 byte Hour, Minute, Second;
 String Buffer_GNSS;
 String Buffer_TIME;
@@ -104,7 +104,7 @@ void SDWriteData(void) {
   if (myFile) {               // if the file opened okay, write to it:
     myFile.print(millis());
     myFile.write(',');
-    myFile.print(Buffer_BME280;
+    myFile.print(Buffer_BME280);
   }
 }
 //////////////////////////////////////////////////////////////////////
@@ -216,13 +216,13 @@ void Create_Buffer_TIME(){
 }
 
 void Create_Buffer_BME280(void){
-  Buffer_bme280.remove(0);
-  Buffer_bme280.concat(Temp);
-  Buffer_bme280.concat(","); 
-  Buffer_bme280.concat(Humidity);
-  Buffer_bme280.concat(",");
-  Buffer_bme280.concat(Pressure);
-  Buffer_bme280.concat(",");
+  Buffer_BME280.remove(0);
+  Buffer_BME280.concat(Temp);
+  Buffer_BME280.concat(","); 
+  Buffer_BME280.concat(Humidity);
+  Buffer_BME280.concat(",");
+  Buffer_BME280.concat(Pressure);
+  Buffer_BME280.concat(",");
 }
 
 void IG_Get(int ig_time){
@@ -237,9 +237,6 @@ void IG_Get(int ig_time){
     Serial.println(RECEVE_Str);
     #endif
     if(RECEVE_Str.compareTo("REIG") == 0){
-       IG_flag = 1;
-       Flow_flag = !Flow_flag;
-       IG_count = ig_time;
        #ifdef DEBUG_SENS
        Serial.println("get REIG");
        #endif

@@ -10,7 +10,7 @@
 void setup(){
   pinSetup();            //IOピンの設定
   Serial.begin(9600);    //デバッグ用UART通信開始
-  Serial.println("MegaTelemtry");
+  /*Serial.println("MegaTelemtry");
   delay(4000);
   wdt_enable(WDTO_4S);   //n秒周期のウォッチドッグタイマ開始
   Serial2.begin(115200);  //LoRaとの通信開始
@@ -22,7 +22,7 @@ void setup(){
   SDsetup();
 //  digitalWrite(RST_mega,HIGH);
   MsTimer2::set(Ts, TIME_Interrupt); // TsごとTIME_Interruptを呼び出す
-  MsTimer2::start();
+  MsTimer2::start();*/
 }
 
 void loop(){
@@ -54,5 +54,18 @@ void TIME_Interrupt(void){
 void Serial_print(void){
   Serial.print(Buffer_BME280);
   Serial.print(Buffer_GNSS); 
+}
+
+void Binaly_send(){
+  int16_t Temp_bin[1] = {(int16_t)Temp*100};
+  uint16_t Humidity_bin[1] = {(uint16_t)Humidity*100};
+  uint16_t Pressure_bin[1] = {(uint16_t)Pressure*100};
+  Serial.write(data_length);
+  Serial.write((byte*)Temp_bin,2);
+  Serial.write((byte*)Humidity_bin,2);
+  Serial.write((byte*)Pressure_bin,2);
+  Serial.write((byte*)latitude,4);
+  Serial.write((byte*)longitude,4);
+  Serial.write((byte*)altitude,4);
 }
 ///////////////////////////////////////////////////////////
