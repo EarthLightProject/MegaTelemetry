@@ -31,12 +31,12 @@
 #define FILE_NAME "DataLog.txt"
 
 //////////グローバル変数の宣言//////////
-int16_t Temp=0;
+float Temp=0;
 float Humidity=0;
 float Pressure=0;
 int timecount=0, IG_count=0;
 uint8_t time_flag=0 ;
-long latitude[1] , longitude[1] , altitude[1];
+long latitude[1]={0} , longitude[1]={0} , altitude[1]={0};
 byte Hour, Minute, Second;
 String Buffer_GNSS;
 String Buffer_TIME;
@@ -143,9 +143,9 @@ void GNSSsetup(void) {
 }
 
 void GNSS_data(void) {
-  latitude = myGNSS.getLatitude();
-  longitude = myGNSS.getLongitude();
-  altitude = myGNSS.getAltitude();
+  latitude[0] = myGNSS.getLatitude();
+  longitude[0] = myGNSS.getLongitude();
+  altitude[0] = myGNSS.getAltitude();
   Hour = myGNSS.getHour();
   Minute = myGNSS.getMinute();
   Second = myGNSS.getSecond();
@@ -193,17 +193,17 @@ void BME280_data(void) {
 ///////////////////////////Buffer/////////////////////////////////
 void Create_Buffer_GNSS(void){
   Buffer_GNSS.remove(0);
-  Buffer_GNSS.concat(latitude/10000000);
+  Buffer_GNSS.concat(latitude[0]/10000000);
   Buffer_GNSS.concat(".");
-  Buffer_GNSS.concat(latitude%10000000);
+  Buffer_GNSS.concat(latitude[0]%10000000);
   Buffer_GNSS.concat(",");
-  Buffer_GNSS.concat(longitude/10000000);
+  Buffer_GNSS.concat(longitude[0]/10000000);
   Buffer_GNSS.concat(".");
-  Buffer_GNSS.concat(longitude%10000000);
+  Buffer_GNSS.concat(longitude[0]%10000000);
   Buffer_GNSS.concat(",");
-  Buffer_GNSS.concat(altitude/1000);
+  Buffer_GNSS.concat(altitude[0]/1000);
   Buffer_GNSS.concat(".");
-  Buffer_GNSS.concat(altitude%1000);
+  Buffer_GNSS.concat(altitude[0]%1000);
 }
 
 void Create_Buffer_TIME(){
