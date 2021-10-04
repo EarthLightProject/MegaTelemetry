@@ -3,6 +3,7 @@
 //////////////通信系定数//////////////
 #define Ts 1000 //(ms)タイマ割り込みの周期, 制御周期
 #define SENDTIME 4  //送信間隔(s)
+#define ALIVE 60  //CANによる生存確認リミット(s)
 /////////////////////////////////////
 
 #include "MegaTelemetry.h"  //ライブラリとピン定義
@@ -19,38 +20,34 @@ void setup(){
   wdt_reset();
   Wire.begin();          //I2C通信開始
   setupBME280();
-//  SDsetup();
+  CANsetup();
+  SDsetup();
 //  digitalWrite(RST_mega,HIGH);
   MsTimer2::set(Ts, TIME_Interrupt); // TsごとTIME_Interruptを呼び出す
   MsTimer2::start();
 }
 
 void loop(){
+  BME280_data();
+  Create_Buffer_BME280();
+  SDWriteData(); 
   if(time_flag==1){
-    BME280_data();
-    Create_Buffer_BME280();
-    Serial.println(Buffer_BME280);
     GNSS_data();
     Create_Buffer_GNSS();
-    Serial.println(Buffer_GNSS);
+    if (myFile)  myFile.print(Buffer_GNSS);
     Binaly_send();
     time_flag=0;
+    #ifdef DEBUG_SENS
+    Serial.println(Buffer_GNSS);
+    Serial.println(Buffer_BME280);
+    #endif
   }
-//  if(Serial2.available()>0) Serial.print((char)Serial2.read());
-//  SDWriteData();
-  /*if(time_flag!=0){
-    GNSS_data();
-    Create_Buffer_GNSS();
-    Create_Buffer_TIME();
-    myFile.write(',');
-    myFile.print(Buffer_GNSS);
-    myFile.write(',');
-    myFile.print(Buffer_TIME);
-    time_flag=0;*/
-    
-//  }
-  // myFile.println();
-  // myFile.flush(); 
+  if (myFile){
+    myFile.println();
+    myFile.flush();
+  } 
+  CAN_send();
+  
 }
 
 ///////////////////////サブ関数////////////////////////////
@@ -61,11 +58,6 @@ void TIME_Interrupt(void){
     time_flag=1;
     timecount=0;
   }
-}
-
-void Serial_print(void){
-  Serial.print(Buffer_BME280);
-  Serial.print(Buffer_GNSS); 
 }
 
 void Binaly_send(){

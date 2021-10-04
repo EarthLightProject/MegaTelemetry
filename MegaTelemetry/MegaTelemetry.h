@@ -7,6 +7,7 @@
 #include <Wire.h> //Needed for I2C to BMW280
 #include <MsTimer2.h>
 #include <SparkFunBME280.h>
+#include <mcp_can.h>
 #include <avr/wdt.h>
 
 //pin define
@@ -27,6 +28,8 @@
 #define SW1 8
 #define SW2 9
 #define SW3 10
+#define CAN0_INT 40                   // Set INT to pin 40
+
 
 #define FILE_NAME "DataLog.txt"
 
@@ -35,19 +38,25 @@ float Temp=0;
 float Humidity=0;
 float Pressure=0;
 int timecount=0, IG_count=0;
-uint8_t time_flag=0 ;
+uint8_t time_flag=0 , Press_IG_count[5]={0};
 long latitude[1]={0} , longitude[1]={0} , altitude[1]={0};
 byte Hour, Minute, Second;
 String Buffer_GNSS;
 String Buffer_TIME;
 String Buffer_BME280;
 String RECEVE_Str;
+
+long unsigned int rxId;
+unsigned char len = 0;
+unsigned char rxBuf[8];
+char CAN_data[8]={0};
 ////////////////////////////////////
 
 /////////////クラスの宣言/////////////
 SFE_UBLOX_GNSS myGNSS;
 BME280 bme280;
 File myFile;
+MCP_CAN CAN0(42);  // Set CS to pin 42
 ///////////////////////////////////
 
 
@@ -62,6 +71,9 @@ void SDsetup(void);
 void Serial_print(void);
 void Create_Buffer(void);
 void SDWriteData(void);
+void CANsetup(void);
+void CAN_read(void);
+void CAN_send(void);
 void IG_Get();
 /////////////////////////////////
 
@@ -74,6 +86,7 @@ void pinSetup(){
   pinMode(SW3,INPUT);
   pinMode(LoRa_RESET,OUTPUT);
   pinMode(RST_mega,OUTPUT);
+  pinMode(CAN0_INT, INPUT);                            // Configuring pin for /INT input
   digitalWrite(LoRa_RESET,HIGH);
   digitalWrite(RST_mega,LOW);
   //pinMode(GNSS_RST,OUTPUT);
@@ -152,6 +165,60 @@ void GNSS_data(void) {
 }
 //////////////////////////////////////////////////////////////////
 
+///////////////////////////////CAN////////////////////////////////////
+void CANsetup(){
+  if(CAN0.begin(MCP_ANY, CAN_500KBPS, MCP_16MHZ) == CAN_OK)
+    Serial.println("MCP2515 Initialized Successfully!");
+  else
+    Serial.println("Error Initializing MCP2515...");
+  CAN0.setMode(MCP_NORMAL);                     // Set operation mode to normal so the MCP2515 sends acks to received data.
+}
+
+void CAN_read(){
+  if(!digitalRead(CAN0_INT)) {                // If CAN0_INT pin is low, read receive buffer
+    CAN0.readMsgBuf(&rxId, &len, rxBuf);      // Read data: len = data length, buf = data byte(s)
+    if(rxId == 0x100){  //生存確認
+      
+    }
+  }  
+}
+
+void CAN_send(){
+  if((540.19 > Pressure) && (Pressure > 264.36) && Press_IG_count[0] == 0 ){
+    byte sndStat = CAN0.sendMsgBuf(0x200, 0, 1, CAN_data);
+    if(sndStat == CAN_OK){
+      Serial.println("SEND CAN0");
+      Press_IG_count[0] = 1;
+    }
+     else Serial.println("Fail CAN0");
+  }
+  if((264.36 > Pressure) && (Pressure > 120.45) && Press_IG_count[1] == 0 ){
+    byte sndStat = CAN0.sendMsgBuf(0x200, 0, 1, CAN_data);
+    if(sndStat == CAN_OK){
+      Serial.println("SEND CAN1");
+      Press_IG_count[1] = 1;
+    }
+  }
+  if((120.45 > Pressure) && (Pressure > 54.74) && Press_IG_count[2] == 0 ){
+    byte sndStat = CAN0.sendMsgBuf(0x200, 0, 1, CAN_data);
+    if(sndStat == CAN_OK){
+      Serial.println("SEND CAN2");
+      Press_IG_count[2] = 1;
+    }
+  }
+  if((54.74 > Pressure) && (Pressure > 1.0) && Press_IG_count[3] == 0 ){
+    byte sndStat = CAN0.sendMsgBuf(0x300, 0, 1, CAN_data);
+    if(sndStat == CAN_OK){
+      Serial.println("SEND CAN3");
+      Press_IG_count[3] = 1;
+    }
+  }
+}
+
+//////////////////////////////////////////////////////////////////////
+
+
+
 ///////////////////////////BME280////////////////////////////////
 void setupBME280(void) {
   bme280.setI2CAddress(0x77);
@@ -204,6 +271,12 @@ void Create_Buffer_GNSS(void){
   Buffer_GNSS.concat(altitude[0]/1000);
   Buffer_GNSS.concat(".");
   Buffer_GNSS.concat(altitude[0]%1000);
+  Buffer_GNSS.concat(",");
+  Buffer_GNSS.concat(Hour);
+  Buffer_GNSS.concat(",");
+  Buffer_GNSS.concat(Minute);
+  Buffer_GNSS.concat(",");
+  Buffer_GNSS.concat(Second);
 }
 
 void Create_Buffer_TIME(){
@@ -224,6 +297,8 @@ void Create_Buffer_BME280(void){
   Buffer_BME280.concat(Pressure);
   Buffer_BME280.concat(",");
 }
+
+
 
 void IG_Get(int ig_time){
   if(Serial.available()>3){
